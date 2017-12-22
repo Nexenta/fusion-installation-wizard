@@ -126,7 +126,7 @@ echoError() {
 }
 
 echoDefaults() {
-    ask "Defaults have been selected for the following parameters:" "ESDB heap size is the memory reserved for the analytics database. The default recommendation is half of the total system memory."
+    ask "Defaults have been selected for the following parameters:" "ESDB heap size is the memory reserved for the analytics database. The default recommendation is half of the total system memory (your machine has $totalMemory of RAM)."
     echo "ESDB heap size:${textBold} ${defaultHeapSize} ${textNormal}"
     echo "Timezone:${textBold} $OLSONTZ ${textNormal}"
     echo "NexentaFusion folders path:${textBold} $defaultFusionPath ${textNormal}"
