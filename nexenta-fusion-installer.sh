@@ -133,7 +133,7 @@ echoDefaults() {
 }
 #
 
-runContainer() {
+prepareContainerParams() {
     managementIp=${ips[$selectedIpIndex]}
     heapSize=$typedHeapSize
     
@@ -154,7 +154,9 @@ runContainer() {
     else 
         heapSize=$typedHeapSize
     fi
+}
 
+runContainer() {
     # show summary if defaults were not accepted
     if [ "$1" = "n" ]; then
         echoBlue "The NexentaFusion container will be run with the following parameters:"
@@ -314,6 +316,20 @@ if [ "$isDefaultsAccpeted" = "n" ]; then
     ### Question 4
     ask "Type NexentaFusion path or press enter to retain the default ($defaultFusionPath)" "This directory is used to store NexentaFusion and ESDB data"
     read typedFusionPath
+fi
+
+prepareContainerParams
+
+if [ -d "${path}/nef" ] && [ -d "${path}/elasticsearch" ]; then
+    echo 
+    echo "There is data from previous NexentaFusion container in specified path";
+    echo "Do you want to use it?"
+    echo "[Y/n]"
+    read useOldData
+    if [ "$useOldData" = "n" ]; then
+        echoBlue "Removing previous NexentaFusion container data..."
+        rm -rf $path/*
+    fi 
 fi
 
 runContainer $isDefaultsAccpeted
