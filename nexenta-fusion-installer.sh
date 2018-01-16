@@ -169,19 +169,18 @@ runContainer() {
         read
     fi
 
+    # checking if there is new image
+    echoBlue "Checking the NexentaFusion container image..."
+    docker pull nexenta/fusion
+
     echoBlue "Running the NexentaFusion container..."
     dockerRunCommand="sudo docker run --name $containerName -v $path/elasticsearch:/var/lib/elasticsearch -v $path/nef:/var/lib/nef -e MGMT_IP=$managementIp --ulimit nofile=65536:65536 --ulimit memlock=-1:-1 -e ES_HEAP_SIZE=$heapSize -e TZ=$tz -p 8457:8457 -p 9200:9200 -p 8443:8443 -i -d nexenta/fusion"
 
-    # check if image is pulled
-    if [ -z "$(sudo docker images -f "reference=nexenta/fusion:latest" | grep nexenta/fusion)" ]; then
-        $dockerRunCommand
-        else
-        # hide docker run output in case of existing image (we don't want to display a created container id)
-        $dockerRunCommand 1> /dev/null
-    fi
+    # hide docker run output in case of existing image (we don't want to display a created container id)
+    $dockerRunCommand 1> /dev/null
 
     if [ $? -gt 0 ]; then
-        echoRed "Error during running docker container"
+        echoRed "Error during running a container"
         exit 1
     fi
 
@@ -208,7 +207,6 @@ if (( $EUID != 0 )); then
 fi
 
 # welcome message
-
 echo "This utility will walk you through installing NexentaFusion to run as a Docker container."
 echo "The required information will be requested and minimums confirmed."
 echo
@@ -320,6 +318,9 @@ fi
 
 prepareContainerParams
 
+# clean install means that data is not exported from other NexentaFusion container
+isCleanInstall=true
+
 if [ -d "${path}/nef" ] && [ -d "${path}/elasticsearch" ]; then
     echo 
     echo "There is data from previous NexentaFusion container in specified path";
@@ -329,7 +330,15 @@ if [ -d "${path}/nef" ] && [ -d "${path}/elasticsearch" ]; then
     if [ "$useOldData" = "n" ]; then
         echoBlue "Removing previous NexentaFusion container data..."
         rm -rf $path/*
+        else 
+        isCleanInstall=false
     fi 
 fi
 
 runContainer $isDefaultsAccpeted
+
+if "$isCleanInstall" = true; then
+    echo
+    echo "Default login/password: admin/nexenta"
+    echo
+fi
