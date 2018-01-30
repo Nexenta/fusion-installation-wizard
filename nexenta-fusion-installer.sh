@@ -1,7 +1,6 @@
 #!/bin/bash
 
-ips=($(ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*'))
-defaultFusionPath="$HOME/fusion"
+defaultFusionPath="$(eval echo ~$SUDO_USER)/fusion"
 containerName="nexenta-fusion"
 # text formatting variables
 textBold=$(tput bold)
@@ -22,13 +21,28 @@ ask() {
     echo "----------------"
 }
 
+getIps() {
+    # CentOS 7 does not have ifconfig preinstalled
+    # MacOS does not have ip preinstalled
+    if [ -x "$(which ifconfig 2> /dev/null)" ]; then
+        ips=$(ifconfig)
+    elif [ -x "$(which ip)" ]; then 
+        ips=$(ip addr)
+    fi
+
+    ips=($(echo "${ips}" | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*'))
+}
+
 getTimezone() {
+    # Ubuntu
     if [ -f /etc/timezone ]; then
         OLSONTZ=$(cat /etc/timezone)
     elif [ -x "$(sudo command -v systemsetup)" ]; then
+    # MacOS
         OLSONTZ=$(sudo systemsetup -gettimezone | grep -Eo '(\w+\/\w+)')
     elif [ -h /etc/localtime ]; then
-        OLSONTZ=$(readlink /etc/localtime | sed "s/\/usr\/share\/zoneinfo\///")
+    # CentOS
+        OLSONTZ=$(readlink /etc/localtime | grep -Eo "\w+\/\w+$")
     else
         checksum=$(md5sum /etc/localtime | cut -d' ' -f1)
         OLSONTZ=$(find /usr/share/zoneinfo/ -type f -exec md5sum {} \; | grep "^$checksum" | sed "s/.*\/usr\/share\/zoneinfo\///" | head -n 1)
@@ -73,7 +87,7 @@ displayOptions() {
     local options=("${!name}");
     
     for ((i=0; i < ${#options[@]}; i++)) {
-        echo "$i) ${options[$i]}"
+        echo "$(($i + 1))) ${options[$i]}"
     }
 
     echo "Type a number and press enter"
@@ -86,7 +100,7 @@ readSelectedOption() {
     local correct=0
     while [ $correct -eq 0 ]; do 
         read input
-        if [[ "$input" =~ [0-${#options[@]}] ]]; then
+        if [[ "$input" =~ [1-${#options[@]}] ]]; then
             correct=1;
         else
             echoRed "Invalid option. Please enter valid option"    
@@ -97,7 +111,7 @@ readSelectedOption() {
 }
 
 getFusionUiStatus() {
-    if curl --output /dev/null --silent --head --insecure --fail https://$1:8457; then
+    if curl --output /dev/null --silent --head --insecure --fail http://$1:8457; then
         echo up
     else 
         echo down
@@ -174,7 +188,7 @@ runContainer() {
     docker pull nexenta/fusion
 
     echoBlue "Running the NexentaFusion container..."
-    dockerRunCommand="sudo docker run --name $containerName -v $path/elasticsearch:/var/lib/elasticsearch -v $path/nef:/var/lib/nef -e MGMT_IP=$managementIp --ulimit nofile=65536:65536 --ulimit memlock=-1:-1 -e ES_HEAP_SIZE=$heapSize -e TZ=$tz -p 8457:8457 -p 9200:9200 -p 8443:8443 -i -d nexenta/fusion"
+    dockerRunCommand="sudo docker run --name $containerName -v $path/elasticsearch:/var/lib/elasticsearch:z -v $path/nef:/var/lib/nef:z -e MGMT_IP=$managementIp --ulimit nofile=65536:65536 --ulimit memlock=-1:-1 -e ES_HEAP_SIZE=$heapSize -e TZ=$tz -p 8457:8457 -p 9200:9200 -p 8443:8443 -i -d nexenta/fusion"
 
     # hide docker run output in case of existing image (we don't want to display a created container id)
     $dockerRunCommand 1> /dev/null
@@ -267,10 +281,11 @@ getTimezone
 ### Questions
 
 ### Question 0
+getIps
 ask "Please select the management address:" "This IP address is used by appliances for pushing analytics data, logs, events"
 displayOptions ips
 readSelectedOption ips
-selectedIpIndex=$?
+selectedIpIndex=$(( $? - 1 ))
 
 ### Question 1
 echoDefaults
