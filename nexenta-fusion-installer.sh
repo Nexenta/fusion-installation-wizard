@@ -231,9 +231,15 @@ echo
 calculateRAM
 
 if $isLowMemory; then
-    echoRed "Your machine has less memory than the minimum requirement of 2g. NexentaFusion cannot be installed"
-    echoBlue "Exiting..."
-    exit 1
+    echoRed "The OS reports ${totalMemory}, which is less than the 2GB minimum."
+    echoRed "Fusion may not operate properly."
+    echoRed "Do you still want to continue?"
+    echoRed "[y/N]"
+    read lowMemoryContinue
+    
+    if [ "$lowMemoryContinue" != "y" ]; then
+        exit 1
+    fi
 fi
 
 # check if docker is installed
