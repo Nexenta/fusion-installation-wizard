@@ -126,6 +126,14 @@ isMacOS() {
     fi
 }
 
+isCentOS() {
+    if [ -f /etc/redhat-release ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # text functions 
 echoBlue() {
     echo -e "${textBlue}${1}${textNc}"
@@ -222,17 +230,30 @@ fi
 
 # welcome message
 echo "This utility will walk you through installing NexentaFusion to run as a Docker container."
+echo "Refer to the NexentaFusion Installation QuickStart guide for additional details."
+echo
 echo "The required information will be requested and minimums confirmed."
+echo 
+echo "NexentaFusion uses ports 2000, 8443, 8457 and 9200"
+echo "Ensure that your firewall allows access to the above."
+
+if isCentOS; then
+    echo
+    echo "The container must be able to access port 9200 using the the management address. This may require changes to iptables."
+fi
+
 echo
 echo "Press ^C at any time to quit."
 echo
+
+
 
 # check if there is enough memory
 calculateRAM
 
 if $isLowMemory; then
     echoRed "The OS reports ${totalMemory}, which is less than the 2GB minimum."
-    echoRed "Fusion may not operate properly."
+    echoRed "NexentaFusion may not operate properly."
     echoRed "Do you still want to continue?"
     echoRed "[y/N]"
     read lowMemoryContinue
