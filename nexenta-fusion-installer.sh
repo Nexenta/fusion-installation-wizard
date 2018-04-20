@@ -59,24 +59,45 @@ calculateRAM() {
         if [[ $totalMemory -lt 2 ]]; then
             isLowMemory=true
         fi
-        defaultHeapSize=$(( ${totalMemory} / 2 ))g
+        defaultHeapSize=$(( ${totalMemory} / 2 ))
+        defaultHeapSizeLimit=31
+        
+        if [ $defaultHeapSize -gt $defaultHeapSizeLimit ]; then
+            defaultHeapSize=$defaultHeapSizeLimit
+        fi
+
+        defaultHeapSize="${defaultHeapSize}g"
+
         if ! [[ $defaultHeapSize =~ ^[0-9]+g$ ]]; then
             defaultHeapSize="1g"
         fi
         totalMemory=${totalMemory}g
     elif [ -f "/proc/meminfo" ]; then
         # linux way to find total RAM
+        # total memory is presented in kib
         totalMemory=$(cat /proc/meminfo | grep -Po "(?<=MemTotal:)(\s+)(\w+)" | grep -Eo "\w+")
         # converting to bytes
-        # if total memory is lower than 2g
+        # if total memory is lower than 2gib
         if [[ $totalMemory -lt 1024*1024*2 ]]; then
             isLowMemory=true
         fi
-        # total memory is presented in kib
+        # converting totalMemory to bytes
         totalMemory=$(( totalMemory * 1024 ))
         defaultHeapSize=$(( totalMemory / 2))
-        # 1024^2 = 1048576 // 1mb
-        defaultHeapSize=$( numfmt --to-unit=1048576 --suffix=m ${defaultHeapSize})
+        # 1024^2 = 1048576 bytes = 1mib
+        # it is recommended to set heap size less or equal to 31gib
+        # 31gib = 1048576 * 1024 * 31 bytes
+        defaultHeapSizeLimit=$(( 1048576 * 1024 * 31 ))
+        if [ $defaultHeapSize -gt $defaultHeapSizeLimit ]; then
+            # if half of memory is more than 31gib we set 31gib as default heap size
+            defaultHeapSize="31g"
+        else 
+            # 1024^2 = 1048576 bytes = 1mib
+            # converting to mebibytes since result of division may be not an integer number
+            # of gibibytes
+            defaultHeapSize=$( numfmt --to-unit=1048576 --suffix=m ${defaultHeapSize})
+        fi 
+       
         # converting to human readable value
         totalMemory=$( numfmt --to=iec ${totalMemory})
     fi
@@ -148,7 +169,7 @@ echoError() {
 }
 
 echoDefaults() {
-    ask "Defaults have been selected for the following parameters:" "ESDB heap size is the memory reserved for the analytics database. The default recommendation is half of the total system memory (your machine has $totalMemory of RAM)."
+    ask "Defaults have been selected for the following parameters:" "ESDB heap size is the memory reserved for the analytics database. The default recommendation is half of the total system memory, but not more than 31 g (your machine has $totalMemory of RAM)."
     echo "ESDB heap size:${textBold} ${defaultHeapSize} ${textNormal}"
     echo "Timezone:${textBold} $OLSONTZ ${textNormal}"
     echo "NexentaFusion folders path:${textBold} $defaultFusionPath ${textNormal}"
@@ -328,7 +349,7 @@ if [ "$isDefaultsAccpeted" = "n" ]; then
     read typedTZdd
 
     ### Question 3
-    ask "Type the ESDB heap size or press enter to retain the default ($defaultHeapSize)" "Enter the quantity of memory to reserve for the analytics database or press enter to accept the default. The default recommendation is half of the total system memory, with a minimum of 1 g and a maximum of 32 g.\nExample: 8g"
+    ask "Type the ESDB heap size or press enter to retain the default ($defaultHeapSize)" "Enter the quantity of memory to reserve for the analytics database or press enter to accept the default. The default recommendation is half of the total system memory, with a minimum of 1 g and a maximum of 31 g.\nExample: 8g"
     echo "Your machine has $totalMemory of RAM"
     echo "Type a heap size and press enter"
     read typedHeapSize
