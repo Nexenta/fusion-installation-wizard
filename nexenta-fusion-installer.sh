@@ -11,6 +11,11 @@ textYellow='\033[38;5;226m'
 textLightGray='\033[1;37m'
 textNc='\033[0m' # N
 
+# it is recommended to set heap size less or equal to 31gib
+# 31g = 1000 * 1000 * 1000 * 31 bytes
+defaultHeapSizeLimitBytes=$(( 1024 * 1024 * 1024 * 31 ))
+defaultHeapSizeLimitG=31
+
 ask() {
     echo
     # echo question
@@ -50,35 +55,55 @@ getTimezone() {
 }
 
 calculateRAM() {
+    # NOTE: ESDB heap size is calculated in units defined as powers of 2
     isLowMemory=false
     if [ -x "/usr/sbin/system_profiler" ]; then
         # mac os way to find total RAM
         totalMemory=$(system_profiler SPHardwareDataType | grep "  Memory:" | grep -Eo '[0-9]+')
         # for mac users we expect that they all have RAM more than 1g and which can be divided by 2
         # in other cases we set 1g as default
-        if [[ $totalMemory -lt 2 ]]; then
-            isLowMemory=true
+        defaultHeapSize=$(( ${totalMemory} / 2 ))
+        
+        if [ $defaultHeapSize -gt $defaultHeapSizeLimitG ]; then
+            defaultHeapSize=$defaultHeapSizeLimitG
         fi
-        defaultHeapSize=$(( ${totalMemory} / 2 ))g
+
+        defaultHeapSize="${defaultHeapSize}g"
+
         if ! [[ $defaultHeapSize =~ ^[0-9]+g$ ]]; then
             defaultHeapSize="1g"
         fi
         totalMemory=${totalMemory}g
     elif [ -f "/proc/meminfo" ]; then
         # linux way to find total RAM
+        # total memory is presented in kb
         totalMemory=$(cat /proc/meminfo | grep -Po "(?<=MemTotal:)(\s+)(\w+)" | grep -Eo "\w+")
-        # converting to bytes
-        # if total memory is lower than 2g
-        if [[ $totalMemory -lt 1024*1024*2 ]]; then
+        # converting totalMemory to bytes
+        totalMemory=$(( totalMemory * 1000 ))
+        onegib=$(( 1024*1024*1024 ))
+        # if total memory is lower than 1gib
+        # we won't allow to run a container via this script
+        if [[ $totalMemory -lt $onegib ]]; then
             isLowMemory=true
         fi
-        # total memory is presented in kib
-        totalMemory=$(( totalMemory * 1024 ))
         defaultHeapSize=$(( totalMemory / 2))
-        # 1024^2 = 1048576 // 1mb
-        defaultHeapSize=$( numfmt --to-unit=1048576 --suffix=m ${defaultHeapSize})
+        if [ $defaultHeapSize -gt $defaultHeapSizeLimitBytes ]; then
+            # if half of memory is more than 31gib we set 31gib as default heap size
+            defaultHeapSize="31g"
+        # if there is more than 1gib but less than 2gib of total RAM
+        # set default heap size 1gib
+        # 1024^3bytes = 1gib
+        elif [[ $defaultHeapSize -lt $onegib ]]; then
+            defaultHeapSize="1g"
+        else 
+            # converting to mibibytes since result of division may be not an integer number
+            # of gibibytes
+            # 1mib = 1024^2
+            defaultHeapSize=$( numfmt --to-unit=1048576 --suffix=m ${defaultHeapSize})
+        fi 
+       
         # converting to human readable value
-        totalMemory=$( numfmt --to=iec ${totalMemory})
+        totalMemory=$( numfmt --round=nearest --to=iec ${totalMemory})
     fi
 }
 
@@ -143,12 +168,16 @@ echoRed() {
     echo -e "${textRed}${1}${textNc}"
 }
 
+echoYellow() {
+    echo -e "${textYellow}${1}${textNc}"
+}
+
 echoError() {
     echo -e "${textRed}Error: ${1}${textNc}" >&2
 }
 
 echoDefaults() {
-    ask "Defaults have been selected for the following parameters:" "ESDB heap size is the memory reserved for the analytics database. The default recommendation is half of the total system memory (your machine has $totalMemory of RAM)."
+    ask "Defaults have been selected for the following parameters:" "ESDB heap size is the memory reserved for the analytics database. The default recommendation is half of the total system memory, but not more than 31g (your machine has $totalMemory of RAM)."
     echo "ESDB heap size:${textBold} ${defaultHeapSize} ${textNormal}"
     echo "Timezone:${textBold} $OLSONTZ ${textNormal}"
     echo "NexentaFusion folders path:${textBold} $defaultFusionPath ${textNormal}"
@@ -252,15 +281,12 @@ echo
 calculateRAM
 
 if $isLowMemory; then
-    echoRed "The OS reports ${totalMemory}, which is less than the 2GB minimum."
+    echoRed "The OS reports ${totalMemory}, which is less than the 1g minimum."
     echoRed "NexentaFusion may not operate properly."
-    echoRed "Do you still want to continue?"
-    echoRed "[y/N]"
-    read lowMemoryContinue
+    echo
+    echoRed "Exiting..."
     
-    if [ "$lowMemoryContinue" != "y" ]; then
-        exit 1
-    fi
+    exit 1
 fi
 
 # check if docker is installed
@@ -328,21 +354,35 @@ if [ "$isDefaultsAccpeted" = "n" ]; then
     read typedTZdd
 
     ### Question 3
-    ask "Type the ESDB heap size or press enter to retain the default ($defaultHeapSize)" "Enter the quantity of memory to reserve for the analytics database or press enter to accept the default. The default recommendation is half of the total system memory, with a minimum of 1 g and a maximum of 32 g.\nExample: 8g"
+    ask "Type the ESDB heap size or press enter to retain the default ($defaultHeapSize)" "Enter the quantity of memory to reserve for the analytics database or press enter to accept the default. The default recommendation is half of the total system memory, with a minimum of 1g and a maximum of 31g.\nExample: 8g"
     echo "Your machine has $totalMemory of RAM"
     echo "Type a heap size and press enter"
     read typedHeapSize
 
-    # check if heap size is correctly typed and more or equal to 1024m
+    # check if heap size is correctly typed and more or equal to 1000m
     if [ -n "$typedHeapSize" ]; then
         heapSizeRegex="^[0-9]+[m,g]$"
         while true; do
             if ! [[ "$typedHeapSize" =~ $heapSizeRegex ]]; then
-                echoRed "Invalid value. Please enter valid value. Example: 1536m"
+                echoRed "Invalid value. Please enter valid value. Examples: 2048m, 16g"
+            # validate mebibytes input
             elif [[ "$typedHeapSize" =~ [0-9]+m ]]; then
-                megabytes=$(echo ${typedHeapSize} | grep -Eo "[0-9]+")
-                if [ $megabytes -lt 1024 ]; then
-                    echoRed "Invalid value. Heap size must be more or equal to 1024m"
+                mebibytes=$(echo ${typedHeapSize} | grep -Eo "[0-9]+")
+                if [[ $mebibytes -lt 1024 ]]; then
+                    echoRed "Invalid value. Heap size must be greater or equal to 1g. Please type correct value"
+                    echo "Type a heap size and press enter"
+                elif [[ $mebibytes -gt 1024*31 ]]; then
+                    echoRed "Invalid value. Heap size must be less or equal to 31g. Please type correct value"
+                    echo "Type a heap size and press enter"
+                else
+                    break
+                fi
+            # validate gibibytes input
+            elif [[ "$typedHeapSize" =~ [0-9]+g ]]; then
+                gibibytes=$(echo ${typedHeapSize} | grep -Eo "[0-9]+")
+                if [[ $gibibytes -gt $defaultHeapSizeLimitG ]]; then
+                    echoRed "Invalid value. Heap size must be less or equal to 31g. Please type correct value"
+                    echo "Type a heap size and press enter"
                 else
                     break
                 fi
