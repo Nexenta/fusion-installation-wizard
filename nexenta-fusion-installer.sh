@@ -411,7 +411,8 @@ if [ -d "${path}/nef" ] && [ -d "${path}/elasticsearch" ]; then
     read useOldData
     if [ "$useOldData" = "n" ]; then
         echoBlue "Removing previous NexentaFusion container data..."
-        rm -rf $path/*
+        rm -rf $path/nef
+        rm -rf $path/elasticsearch
         else 
         isCleanInstall=false
     fi 
