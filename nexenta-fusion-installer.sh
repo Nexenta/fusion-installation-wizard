@@ -107,12 +107,17 @@ calculateRAM() {
     fi
 }
 
-displayOptions() {
+displayIpOptions() {
     local name=$1[@]
     local options=("${!name}");
     
     for ((i=0; i < ${#options[@]}; i++)) {
-        echo "$(($i + 1))) ${options[$i]}"
+        if [[ "$previouslyUsedManagementIp" ==  ${options[$i]} ]]; then
+            local comment="(previously used by NexentaFusion container)"
+        else 
+            local comment=""
+        fi
+        echo "$(($i + 1))) ${options[$i]} ${comment}"
     }
 
     echo "Type a number and press enter"
@@ -320,6 +325,8 @@ if [ -n "$(docker ps -a -f "name=${containerName}" | grep ${containerName})" ]; 
     echo "[y/N]"
     read removeCurrentContainer
 
+    previouslyUsedManagementIp=$(docker inspect nexenta-fusion | grep MGMT | grep -Eo '([0-9]+\.){3}[0-9]+')
+
     if [ "$removeCurrentContainer" = "y" ]; then
         echoBlue "Removing current container..." 
         sudo docker rm -f $containerName 1>/dev/null
@@ -336,7 +343,7 @@ getTimezone
 ### Question 0
 getIps
 ask "Please select the management address:" "This IP address is used by appliances for pushing analytics data, logs, events"
-displayOptions ips
+displayIpOptions ips
 readSelectedOption ips
 selectedIpIndex=$(( $? - 1 ))
 
