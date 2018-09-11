@@ -230,7 +230,7 @@ runContainer() {
     docker pull nexenta/fusion
 
     echoBlue "Running the NexentaFusion container..."
-    dockerRunCommand="sudo docker run --name $containerName -v $path/elasticsearch:/var/lib/elasticsearch:z -v $path/nef:/var/lib/nef:z -e MGMT_IP=$managementIp --ulimit nofile=65536:65536 --ulimit memlock=-1:-1 -e ES_HEAP_SIZE=$heapSize -e TZ=$tz -p 8457:8457 -p 9200:9200 -p 8443:8443 -p 2000:2000 -p 8080:8080 -i -d nexenta/fusion"
+    dockerRunCommand="sudo docker run --name $containerName -v $path/elasticsearch:/var/lib/elasticsearch:z -v $path/nef:/var/lib/nef:z -e MGMT_IP=$managementIp --ulimit nofile=65536:65536 --ulimit memlock=-1:-1 -e ES_HEAP_SIZE=$heapSize -e TZ=$tz -p 8457:8457 -p 9200:9200 -p 8443:8443 -p 2000:2000 -i -d nexenta/fusion"
 
     # hide docker run output in case of existing image (we don't want to display a created container id)
     $dockerRunCommand 1> /dev/null
