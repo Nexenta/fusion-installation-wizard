@@ -1,0 +1,56 @@
+# Should not be used in production.
+# This is example of docker-compose file
+# which can be used to run fusion eco system.
+# 
+# Please note, that following settings provide
+# password protected elasticsearch (also with SSL enabled)
+# Check elasticsearch environment settings:
+#   AUTH_USERNAME
+#   AUTH_PASSWORD
+#
+# Usage:
+#   docker-compose up --build
+
+version: '3.2'
+
+services:
+  fusion:
+    image: nexenta/fusion-dev:${VERSION:-2.0.0.0}
+    container_name: fusion-qa
+    volumes:
+      - fusdata:/var/lib/nef
+    ports:
+      - 8443:8443
+      - 8457:8457
+    # If you want to specify management address and elasticsearch info,
+    # then uncomment following lines.
+    # Note: Settings are persistent, and would not be picked up, if
+    # /var/lib/nef folder is present
+    # environment:
+    #   MANAGEMENT_ADDRESS: "192.168.10.62"
+    #   ELASTICSEARCH_SERVERS: '[{"url":"https://192.168.10.62:9200","username":"admin","password":"elasticsearch"}]'
+
+  elasticsearch01:
+    image: nexenta/fusion-elasticsearch:6.6.0.0
+    container_name: fusion-qa-elasticsearch01
+    environment:
+      AUTH_USERNAME: "admin"
+      AUTH_PASSWORD: "elasticsearch"
+      HOSTNAME: "elasticsearch01"
+      bootstrap.memory_lock: "true"
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata1:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+
+volumes:
+  fusdata:
+    driver: local
+  esdata1:
+    driver: local
