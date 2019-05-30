@@ -29,6 +29,8 @@ services:
     # environment:
     #   MANAGEMENT_ADDRESS: "192.168.10.62"
     #   ELASTICSEARCH_SERVERS: '[{"url":"https://192.168.10.62:9200","username":"admin","password":"elasticsearch"}]'
+    # Specify container timezone. If no timezone provided UTC will be the timezone of the container
+    #   TZ: "America/New_York" 
 
   elasticsearch01:
     image: nexenta/fusion-elasticsearch:6.6.0.0
