@@ -15,7 +15,7 @@ version: '3.2'
 
 services:
   fusion:
-    image: nexenta/fusion-dev:${VERSION:-2.0.0.0}
+    image: nexenta/fusion-dev:${VERSION:-2.0.1.0}
     container_name: fusion-qa
     volumes:
       - fusdata:/var/lib/nef
@@ -33,7 +33,7 @@ services:
     #   TZ: "America/New_York" 
 
   elasticsearch01:
-    image: nexenta/fusion-elasticsearch:6.6.0.0
+    image: nexenta/fusion-elasticsearch:7.0.0.0
     container_name: fusion-qa-elasticsearch01
     environment:
       AUTH_USERNAME: "admin"
