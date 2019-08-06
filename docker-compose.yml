@@ -16,43 +16,54 @@ version: '3.2'
 services:
   fusion:
     image: nexenta/fusion-dev:${VERSION:-2.0.1.0}
-    container_name: fusion-qa
+    container_name: fusion
     volumes:
-      - fusdata:/var/lib/nef
+      - fusion-data:/var/lib/nef
     ports:
       - 8443:8443
       - 8457:8457
     # If you want to specify management address and elasticsearch info,
     # then uncomment following lines.
-    # Note: Settings are persistent, and would not be picked up, if
-    # /var/lib/nef folder is present
+    # Note: If settings are defined as enviromental variables, then
+    # they would be displayed as read-only in UI configuration screens.
     # environment:
     #   MANAGEMENT_ADDRESS: "192.168.10.62"
-    #   ELASTICSEARCH_SERVERS: '[{"url":"https://192.168.10.62:9200","username":"admin","password":"elasticsearch"}]'
-    # Specify container timezone. If no timezone provided UTC will be the timezone of the container
-    #   TZ: "America/New_York" 
+    #   ELASTICSEARCH_SERVERS: 'https://admin:elasticsearch@192.168.10.62:9200'
+    #
+    # Timezone of container. Default: UTC+0
+    #   TZ: "America/New_York"
+    #
+    # Proxy server address
+    #   WEB_PROXY: "http://192.168.10.250:8080" 
 
-  elasticsearch01:
-    image: nexenta/fusion-elasticsearch:7.0.0.0
-    container_name: fusion-qa-elasticsearch01
+  elasticsearch:
+    image: nexenta/fusion-elasticsearch:7.2.0.0
+    container_name: fusion-elasticsearch
     environment:
+      # Credentials for remote elasticsearch access
       AUTH_USERNAME: "admin"
       AUTH_PASSWORD: "elasticsearch"
-      HOSTNAME: "elasticsearch01"
+
+      HOSTNAME: "elasticsearch"
       bootstrap.memory_lock: "true"
       discovery.type: single-node
+      # Specify heap size. It should be a half of memory dedicated to container (maximum is 31g)
+      # Example: Total memory provided to container is 4g. Heap size should be set to 2g:
+      #     "-Xms2g -Xmx2g"
+      # Performance note: If heap size is set to value larger than half of RAM, you may experience
+      # a slowdown of database
       ES_JAVA_OPTS: "-Xms1g -Xmx1g"
     ulimits:
       memlock:
         soft: -1
         hard: -1
     volumes:
-      - esdata1:/usr/share/elasticsearch/data
+      - fusion-elasticsearch-data:/usr/share/elasticsearch/data
     ports:
       - 9200:9200
 
 volumes:
-  fusdata:
+  fusion-data:
     driver: local
-  esdata1:
+  fusion-elasticsearch-data:
     driver: local
