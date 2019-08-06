@@ -9,7 +9,7 @@
 #   AUTH_PASSWORD
 #
 # Usage:
-#   docker-compose up --build
+#   docker-compose up -d
 
 version: '3.2'
 
@@ -24,7 +24,7 @@ services:
       - 8457:8457
     # If you want to specify management address and elasticsearch info,
     # then uncomment following lines.
-    # Note: If settings are defined as enviromental variables, then
+    # Note: If settings are defined as environment variables, then
     # they would be displayed as read-only in UI configuration screens.
     # environment:
     #   MANAGEMENT_ADDRESS: "192.168.10.62"
