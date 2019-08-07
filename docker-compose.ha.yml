@@ -1,0 +1,120 @@
+# Should not be used in production.
+# This is example of docker-compose file
+# which can be used to run fusion eco system.
+#
+# Please note, that following settings provide
+# password protected elasticsearch (also with SSL enabled)
+# Check elasticsearch-env settings:
+#   AUTH_USERNAME
+#   AUTH_PASSWORD
+#
+# Usage:
+#   docker-compose up
+
+version: '3.4'
+
+# Database shared environment
+x-elasticsearch-env: &elasticsearch-env
+  # User credentials
+  AUTH_USERNAME: "admin"
+  AUTH_PASSWORD: "elasticsearch"
+
+  # Heap size
+  ES_JAVA_OPTS: "-Xms128m -Xmx128m"
+
+  # Cluster name
+  cluster.name: "fusion-docker-cluster"
+
+  # Default settings for all cluster nodes
+  bootstrap.memory_lock: "true"
+  cluster.initial_master_nodes: "es-master01,es-master02,es-master03"
+
+services:
+  fusion:
+    image: nexenta/fusion-dev:${VERSION:-2.0.2.0}
+    container_name: fusion
+    volumes:
+      - fusdata:/var/lib/nef
+    # If you want to specify management address and elasticsearch info,
+    # then uncomment following lines.
+    # Note: If settings are defined as enviromental variables, then
+    # they would be displayed as read-only in UI configuration screens.
+    # environment:
+    #   MANAGEMENT_ADDRESS: "192.168.10.62"
+    #   ELASTICSEARCH_SERVERS: 'https://admin:elasticsearch@192.168.10.62:9200'
+    #
+    # Timezone of container. Default: UTC+0
+    #   TZ: "America/New_York"
+    #
+    # Proxy server address
+    #   WEB_PROXY: "http://192.168.10.250:8080"
+    ports:
+      - 8443:8443
+      - 8457:8457
+
+  es-master01:
+    image: nexenta/fusion-elasticsearch:7.2.0.0
+    container_name: es-master01
+    environment:
+      << : *elasticsearch-env
+      HOSTNAME: "es-master01"
+      discovery.seed_hosts: "es-master02,es-master03"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata1:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+    networks:
+      - esnet
+
+  es-master02:
+    image: nexenta/fusion-elasticsearch:7.2.0.0
+    container_name: es-master02
+    environment:
+      << : *elasticsearch-env
+      HOSTNAME: "es-master02"
+      discovery.seed_hosts: "es-master01,es-master03"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata2:/usr/share/elasticsearch/data
+    ports:
+      - 10200:9200
+    networks:
+      - esnet
+
+  es-master03:
+    image: nexenta/fusion-elasticsearch:7.2.0.0
+    container_name: es-master03
+    environment:
+      << : *elasticsearch-env
+      HOSTNAME: "es-master03"
+      discovery.seed_hosts: "es-master01,es-master02"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata3:/usr/share/elasticsearch/data
+    ports:
+      - 11200:9200
+    networks:
+      - esnet
+
+volumes:
+  fusdata:
+    driver: local
+  esdata1:
+    driver: local
+  esdata2:
+    driver: local
+  esdata3:
+    driver: local
+
+networks:
+  esnet:
