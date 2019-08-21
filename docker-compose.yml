@@ -17,6 +17,7 @@ services:
   fusion:
     image: nexenta/fusion-dev:${VERSION:-2.0.2.0}
     container_name: fusion
+    restart: always
     volumes:
       - fusion-data:/var/lib/nef
     ports:
@@ -39,6 +40,7 @@ services:
   elasticsearch:
     image: nexenta/fusion-elasticsearch:7.2.0.0
     container_name: fusion-elasticsearch
+    restart: always
     environment:
       # Credentials for remote elasticsearch access
       AUTH_USERNAME: "admin"
