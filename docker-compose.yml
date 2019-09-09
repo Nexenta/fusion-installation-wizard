@@ -18,11 +18,17 @@ services:
     image: nexenta/fusion-dev:${VERSION:-2.0.2.0}
     container_name: fusion
     restart: always
+    environment:
+    # If you want NexentaFusion to listen on other port than 8457
+    # change environment variable below and do a change in the ports section 
+    # or just use PORT environment variable to specify port
+    #
+    # Example: PORT=443 docker-compose up -d 
+      PORT: ${PORT:-8457}
     volumes:
       - fusion-data:/var/lib/nef
     ports:
-      - 8443:8443
-      - 8457:8457
+      - ${PORT:-8457}:8457
     # If you want to specify management address and elasticsearch info,
     # then uncomment following lines.
     # Note: If settings are defined as environment variables, then
