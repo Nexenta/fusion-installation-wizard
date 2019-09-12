@@ -20,7 +20,7 @@ x-elasticsearch-env: &elasticsearch-env
   AUTH_PASSWORD: "elasticsearch"
 
   # Heap size
-  ES_JAVA_OPTS: "-Xms128m -Xmx128m"
+  ES_JAVA_OPTS: "-Xms1g -Xmx1g"
 
   # Cluster name
   cluster.name: "fusion-docker-cluster"
@@ -34,11 +34,18 @@ services:
     image: nexenta/fusion-dev:${VERSION:-2.0.2.0}
     container_name: fusion
     restart: always
+    environment:
+    # If you want NexentaFusion to listen on other port than 8457
+    # change environment variable below and do a change in the ports section 
+    # or just use PORT environment variable to specify port
+    #
+    # Example: PORT=443 docker-compose up -d 
+      PORT: ${PORT:-8457}
     volumes:
       - fusdata:/var/lib/nef
     # If you want to specify management address and elasticsearch info,
     # then uncomment following lines.
-    # Note: If settings are defined as enviromental variables, then
+    # Note: If settings are defined as environmental variables, then
     # they would be displayed as read-only in UI configuration screens.
     # environment:
     #   MANAGEMENT_ADDRESS: "192.168.10.62"
@@ -50,8 +57,7 @@ services:
     # Proxy server address
     #   WEB_PROXY: "http://192.168.10.250:8080"
     ports:
-      - 8443:8443
-      - 8457:8457
+      - ${PORT:-8457}:8457
 
   es-master01:
     image: nexenta/fusion-elasticsearch:7.2.0.0
