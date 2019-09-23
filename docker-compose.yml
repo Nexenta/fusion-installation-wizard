@@ -15,7 +15,7 @@ version: '3.2'
 
 services:
   fusion:
-    image: nexenta/fusion-dev:${VERSION:-2.0.2.0}
+    image: nexenta/fusion-dev:${VERSION:-2.0.0.3}
     container_name: fusion
     restart: always
     environment:
