@@ -1,9 +1,9 @@
 # Should not be used in production.
 # This is example of docker-compose file
-# which can be used to run fusion eco system.
+# which can be used to run NexentaFusion ecosystem.
 # 
 # Please note, that following settings provide
-# password protected elasticsearch (also with SSL enabled)
+# password protected Elasticsearch (also with SSL enabled)
 # Check elasticsearch environment settings:
 #   AUTH_USERNAME
 #   AUTH_PASSWORD
@@ -29,7 +29,7 @@ services:
       - fusion-data:/var/lib/nef
     ports:
       - ${PORT:-8457}:8457
-    # If you want to specify management address and elasticsearch info,
+    # If you want to specify management address and Elasticsearch info,
     # then uncomment following lines.
     # Note: If settings are defined as environment variables, then
     # they would be displayed as read-only in UI configuration screens.
