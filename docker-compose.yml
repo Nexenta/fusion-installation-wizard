@@ -29,23 +29,21 @@ services:
     #
     # Example: PORT=443 docker-compose up -d 
       PORT: ${PORT:-8457}
-    volumes:
-      - fusion-data:/var/lib/nef
-    ports:
-      - ${PORT:-8457}:8457
     # If you want to specify management address and Elasticsearch info,
     # then uncomment following lines.
     # Note: If settings are defined as environment variables, then
     # they would be displayed as read-only in UI configuration screens.
-    # environment:
     #   MANAGEMENT_ADDRESS: "192.168.10.62"
     #   ELASTICSEARCH_SERVERS: 'https://admin:elasticsearch@192.168.10.62:9200'
     #
     # Timezone of container. Default: UTC+0
-    #   TZ: "America/New_York"
-    #
+      TZ: ${TZ:-Etc/UTC}
     # Proxy server address
-    #   WEB_PROXY: "http://192.168.10.250:8080" 
+      WEB_PROXY: ${WEB_PROXY}
+    volumes:
+      - fusion-data:/var/lib/nef
+    ports:
+      - ${PORT:-8457}:8457
 
   elasticsearch:
     image: nexenta/fusion-elasticsearch:7.2.0.0
@@ -53,8 +51,8 @@ services:
     restart: always
     environment:
       # Credentials for remote elasticsearch access
-      AUTH_USERNAME: "admin"
-      AUTH_PASSWORD: "elasticsearch"
+      AUTH_USERNAME: ${ESDB_USERNAME:-admin}
+      AUTH_PASSWORD: ${ESDB_PASSWORD:-elasticsearch}
 
       HOSTNAME: "elasticsearch"
       bootstrap.memory_lock: "true"
@@ -64,7 +62,7 @@ services:
       #     "-Xms2g -Xmx2g"
       # Performance note: If heap size is set to value larger than half of RAM, you may experience
       # a slowdown of database
-      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+      ES_JAVA_OPTS: "-Xms${ESDB_HEAP_SIZE:-1g} -Xmx${ESDB_HEAP_SIZE:-1g}"
     ulimits:
       memlock:
         soft: -1
