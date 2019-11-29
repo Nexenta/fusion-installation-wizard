@@ -1,0 +1,224 @@
+# 
+# This is all-in-one YAML for deployment NexentaFusion in Kubernetes
+# 
+# NOTE: Add StorageClass for Persistent Volume creation due to your storage type. E.g., NexentaStor CSI driver:
+#
+#apiVersion: storage.k8s.io/v1
+#kind: StorageClass
+#metadata:
+#  name: nexentastor-csi-driver-cs-esdb-persistent
+#provisioner: nexentastor-csi-driver.nexenta.com
+#---
+#apiVersion: storage.k8s.io/v1
+#kind: StorageClass
+#metadata:
+#  name: nexentastor-csi-driver-cs-fusion-persistent
+#provisioner: nexentastor-csi-driver.nexenta.com
+#---
+#
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: es-node
+  labels:
+    service: db
+spec:
+  selector:
+    matchLabels:
+      service: db
+  serviceName: esdb-svc
+  # NOTE:
+  # You can change number of Elasticsearch nodes here
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        service: db
+    spec:
+      initContainers:
+      # NOTE:
+      # To avoid errors with small vm.max_map_count
+      # This section can be commented if needed
+      - name: vm-max-map-count
+        image: busybox
+        command:
+        - sysctl
+        - -w
+        - vm.max_map_count=262144
+        securityContext:
+          privileged: true
+      # NOTE:
+      # To avoid errors with AccessDeniedException
+      # This section can be commented if needed
+      - name: volume-permission
+        image: busybox
+        command:
+        - sh
+        - -c
+        - chown -R 1000:1000 /usr/share/elasticsearch/data
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: esdb-vol
+          mountPath: /usr/share/elasticsearch/data
+      containers:
+        - name: esdb
+          image: nexenta/fusion-elasticsearch:7.2.0.0
+          resources:
+            # NOTE: 
+            # We recommend change this settings based on your compute resources
+            # But at least 4gb of RAM and 2 CPU
+            limits:
+              cpu: "4"
+              memory: "8Gi"
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+          ports:
+            - containerPort: 9200
+              name: http
+            - containerPort: 9300
+              name: tcp
+          volumeMounts:
+            - mountPath: /usr/share/elasticsearch/data
+              name: esdb-vol
+          env:
+            # NOTE:
+            # Heap size should be limited to half the total memory size (but not be greater than 31g)
+            - name: ES_JAVA_OPTS
+              value: "-Xms2g -Xmx2g"
+            - name: cluster.name
+              value: "fusion-k8s-cluster"
+            - name: node.name
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            # NOTE:
+            # If you change number of replicas please change env vars "discovery.seed_hosts" and "cluster.initial_master_nodes"
+            # using existing tamplate
+            - name: discovery.seed_hosts
+              value: "es-node-0.esdb-svc.default.svc.cluster.local,es-node-1.esdb-svc.default.svc.cluster.local,es-node-2.esdb-svc.default.svc.cluster.local"
+            - name: cluster.initial_master_nodes
+              value: "es-node-0,es-node-1,es-node-2"
+          # NOTE:
+          # You should create secret with AUTH_USER and AUTH_PASSWORD for Elasticsearch
+          # E.g.
+          # kubectl create secret generic esdb-secret --from-literal=AUTH_USERNAME='admin' --from-literal=AUTH_PASSWORD='elasticsearch'
+          # Then you can use this credentials for NexentaFusion Analytics setup
+          envFrom:
+          - secretRef:
+              name: esdb-secret
+  # NOTE:
+  # You can use any CSI driver for SctorageClass creation or use default StorageClass
+  # Elasticsearch requires 2TB persistent volume
+  volumeClaimTemplates:
+  - metadata:
+      name: esdb-vol
+    spec:
+      accessModes: ["ReadWriteOnce"]
+#      storageClassName: "nexentastor-csi-driver-cs-esdb-persistent"
+      resources:
+        requests:
+          storage: 2Ti
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: fusion
+  labels:
+    app: ui
+spec:
+  selector:
+    matchLabels:
+      app: ui
+  serviceName: fusion-svc
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ui
+    spec:
+      containers:
+        - name: fusion
+          image: nexenta/fusion-dev
+          resources:
+            # NOTE:
+            # We recommend change this settings based on your compute resources
+            # But at least 2gb of RAM and 1 CPU
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+          ports:
+            - containerPort: 8457
+          volumeMounts:
+            - mountPath: /var/lib/nef
+              name: fusion-vol
+          # NOTE:
+          # If you want to change any env vars for NexentaFusion container you can create secret and uncomment "envFrom" settings
+          # You can change such environment parameters as: TZ, MANAGEMENT_ADDRESS, ELASTICSEARCH_SERVERS, WEB_PROXY, PORT
+          # E.g.
+          # kubectl create secret generic fusion-secret --from-literal=ELASTICSEARCH_SERVERS='https://admin:elasticsearch@10.3.199.201:9200'
+          # 
+#          envFrom:
+#          - secretRef:
+#              name: fusion-secret
+      # TEMPORARY section
+      #
+      # docker login
+      # kubectl create secret generic regcred --from-file=.dockerconfigjson=/root/.docker/config.json --type=kubernetes.io/dockerconfigjson
+      # kubectl get secret regcred --output=yaml
+      # 
+      imagePullSecrets:
+      - name: regcred
+  # NOTE:
+  # You can use any CSI driver for SctorageClass creation or use your default StorageClass
+  # NexentaFusion requires 10GB persistent volume
+  volumeClaimTemplates:
+  - metadata:
+      name: fusion-vol
+    spec:
+      accessModes: ["ReadWriteOnce"]
+#      storageClassName: "nexentastor-csi-driver-cs-fusion-persistent"
+      resources:
+        requests:
+          storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: esdb-svc
+spec:
+  type: LoadBalancer
+  # NOTE:
+  # You should modify esternalIPs to your needs and uncomment it
+#  externalIPs: [10.20.30.40]
+  selector:
+    service: db
+  ports:
+  - name: discover
+    port: 9300
+    protocol: TCP
+  - name: db
+    protocol: TCP
+    port: 9200
+    targetPort: 9200
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fusion-svc
+spec:
+  type: LoadBalancer
+  # NOTE:
+  # You should modify esternalIPs to your needs and uncomment it
+#  externalIPs: [10.20.30.40]
+  selector:
+    app: ui
+  ports:
+  - name: ui
+    protocol: TCP
+    port: 8457
+    targetPort: 8457
