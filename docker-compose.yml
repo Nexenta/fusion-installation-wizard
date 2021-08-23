@@ -20,6 +20,7 @@ x-elasticsearch-env: &elasticsearch-env
 
 services:
   fusion:
+    # TODO: change image link to publicly available image when it is ready
     image: tintri-dockerv2-local.jfrog.io/fusion2_develop:${VERSION:-latest}
     container_name: fusion
     restart: always
