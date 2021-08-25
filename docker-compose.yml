@@ -1,79 +1,120 @@
 # This is example of docker-compose file
 # which can be used to run NexentaFusion ecosystem.
-# 
-# Please note, that following settings provide
-# password protected Elasticsearch (also with SSL enabled)
-# Check elasticsearch environment settings:
-#   AUTH_USERNAME
-#   AUTH_PASSWORD
-#
-# Make sure your docker host machine vm.max_map_count kernel setting value is at least 262144. 
-# It is necessary for the Elasticsearch container. 
-# Here is an instruction how to get and set this kernel setting 
-# https://www.elastic.co/guide/en/elasticsearch/reference/7.2/docker.html#docker-cli-run-prod-mode
 #
 # Usage:
-#   docker-compose up -d
+#   docker-compose up
 
-version: '3.2'
+version: '3.4'
+
+# Database shared environment
+x-elasticsearch-env: &elasticsearch-env
+  # Heap size
+  ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+
+  # Cluster name
+  cluster.name: "fusion-docker-cluster"
+
+  # Default settings for all cluster nodes
+  bootstrap.memory_lock: "true"
+  cluster.initial_master_nodes: "es-master01,es-master02,es-master03"
 
 services:
   fusion:
-    image: nexenta/fusion-dev:${VERSION:-2.0.0.3}
+    # TODO: change image link to publicly available image when it is ready
+    image: tintri-dockerv2-local.jfrog.io/fusion2_develop:${VERSION:-latest}
     container_name: fusion
     restart: always
     environment:
     # If you want NexentaFusion to listen on other port than 8457
-    # change environment variable below and do a change in the ports section 
+    # change environment variable below and do a change in the ports section
     # or just use PORT environment variable to specify port
     #
-    # Example: PORT=443 docker-compose up -d 
+    # Example: PORT=443 docker-compose up -d
       PORT: ${PORT:-8457}
+    volumes:
+      - fusdata:/var/lib/nef
     # If you want to specify management address and Elasticsearch info,
     # then uncomment following lines.
-    # Note: If settings are defined as environment variables, then
+    # Note: If settings are defined as environmental variables, then
     # they would be displayed as read-only in UI configuration screens.
+    # environment:
     #   MANAGEMENT_ADDRESS: "192.168.10.62"
     #   ELASTICSEARCH_SERVERS: 'https://admin:elasticsearch@192.168.10.62:9200'
     #
     # Timezone of container. Default: UTC+0
-      TZ: ${TZ:-Etc/UTC}
+    #   TZ: "America/New_York"
+    #
     # Proxy server address
-      WEB_PROXY: ${WEB_PROXY}
-    volumes:
-      - fusion-data:/var/lib/nef
+    #   WEB_PROXY: "http://192.168.10.250:8080"
     ports:
       - ${PORT:-8457}:8457
 
-  elasticsearch:
-    image: nexenta/fusion-elasticsearch:7.2.0.0
-    container_name: fusion-elasticsearch
+  es-master01:
+    image: amazon/opendistro-for-elasticsearch:latest
+    container_name: es-master01
     restart: always
     environment:
-      # Credentials for remote elasticsearch access
-      AUTH_USERNAME: ${ESDB_USERNAME:-admin}
-      AUTH_PASSWORD: ${ESDB_PASSWORD:-elasticsearch}
-
-      HOSTNAME: "elasticsearch"
-      bootstrap.memory_lock: "true"
-      discovery.type: single-node
-      # Specify heap size. It should be a half of memory dedicated to container (maximum is 31g)
-      # Example: Total memory provided to container is 4g. Heap size should be set to 2g:
-      #     "-Xms2g -Xmx2g"
-      # Performance note: If heap size is set to value larger than half of RAM, you may experience
-      # a slowdown of database
-      ES_JAVA_OPTS: "-Xms${ESDB_HEAP_SIZE:-1g} -Xmx${ESDB_HEAP_SIZE:-1g}"
+      << : *elasticsearch-env
+      HOSTNAME: "es-master01"
+      discovery.seed_hosts: "es-master02,es-master03"
     ulimits:
       memlock:
         soft: -1
         hard: -1
     volumes:
-      - fusion-elasticsearch-data:/usr/share/elasticsearch/data
+      - esdata1:/usr/share/elasticsearch/data
     ports:
       - 9200:9200
+    networks:
+      - esnet
+
+  es-master02:
+    image: amazon/opendistro-for-elasticsearch:latest
+    container_name: es-master02
+    restart: always
+    environment:
+      << : *elasticsearch-env
+      HOSTNAME: "es-master02"
+      discovery.seed_hosts: "es-master01,es-master03"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata2:/usr/share/elasticsearch/data
+    ports:
+      - 10200:9200
+    networks:
+      - esnet
+
+  es-master03:
+    image: amazon/opendistro-for-elasticsearch:latest
+    container_name: es-master03
+    restart: always
+    environment:
+      << : *elasticsearch-env
+      HOSTNAME: "es-master03"
+      discovery.seed_hosts: "es-master01,es-master02"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata3:/usr/share/elasticsearch/data
+    ports:
+      - 11200:9200
+    networks:
+      - esnet
 
 volumes:
-  fusion-data:
+  fusdata:
     driver: local
-  fusion-elasticsearch-data:
+  esdata1:
     driver: local
+  esdata2:
+    driver: local
+  esdata3:
+    driver: local
+
+networks:
+  esnet:
