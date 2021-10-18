@@ -1,7 +1,8 @@
 #!/bin/bash
 
-defaultFusionPath="$(eval echo ~$SUDO_USER)/fusion"
-containerName="nexenta-fusion"
+echo "$(dirname "$0")"
+defaultFusionVol="fusion2_fusdata"
+containerName="fusion2"
 # text formatting variables
 textBold=$(tput bold)
 textNormal=$(tput sgr0)
@@ -113,7 +114,7 @@ displayIpOptions() {
     
     for ((i=0; i < ${#options[@]}; i++)) {
         if [[ "$previouslyUsedManagementIp" ==  ${options[$i]} ]]; then
-            local comment="(previously used by NexentaFusion container)"
+            local comment="(previously used by Fusion container)"
         else 
             local comment=""
         fi
@@ -185,7 +186,7 @@ echoDefaults() {
     ask "Defaults have been selected for the following parameters:" "ESDB heap size is the memory reserved for the analytics database. The default recommendation is half of the total system memory, but not more than 31g (your machine has $totalMemory of RAM)."
     echo "ESDB heap size:${textBold} ${defaultHeapSize} ${textNormal}"
     echo "Timezone:${textBold} $OLSONTZ ${textNormal}"
-    echo "NexentaFusion folders path:${textBold} $defaultFusionPath ${textNormal}"
+    echo "Fusion volume name:${textBold} $defaultFusionVol ${textNormal}"
 }
 #
 
@@ -199,10 +200,10 @@ prepareContainerParams() {
         tz=$typedTZ
     fi
 
-    if [ -z "$typedFusionPath" ]; then
-        path=$defaultFusionPath
+    if [ -z "$typedFusionVol" ]; then
+        fusionVol=$defaultFusionVol
     else 
-        path=$typedFusionPath
+        fusionVol=$typedFusionVol
     fi
 
     if [ -z "$typedHeapSize" ]; then
@@ -215,23 +216,25 @@ prepareContainerParams() {
 runContainer() {
     # show summary if defaults were not accepted
     if [ "$1" = "n" ]; then
-        echoBlue "The NexentaFusion container will be run with the following parameters:"
+        echoBlue "The Fusion container will be run with the following parameters:"
         echo "Management IP:${textBold} $managementIp${textNormal}"
         echo "ESDB heap size:${textBold} ${heapSize} ${textNormal}"
         echo "Timezone:${textBold} $tz ${textNormal}"
-        echo "NexentaFusion folders path:${textBold} $path ${textNormal}"
+        echo "Fusion volume name:${textBold} $fusionVol ${textNormal}"
         echo
         echo "Press any key to continue"
         read
     fi
+    echoBlue "Installing ElasticSearch cluster..."
+    docker-compose -f $(dirname "$0")/docker-compose.yml up -d
 
     # checking if there is new image
-    echoBlue "Checking the NexentaFusion container image..."
-    docker pull nexenta/fusion
-
-    echoBlue "Running the NexentaFusion container..."
-    dockerRunCommand="sudo docker run --name $containerName -v $path/elasticsearch:/var/lib/elasticsearch:z -v $path/nef:/var/lib/nef:z -e MGMT_IP=$managementIp --ulimit nofile=65536:65536 --ulimit memlock=-1:-1 -e ES_HEAP_SIZE=$heapSize -e TZ=$tz -p 8457:8457 -p 9200:9200 -p 8443:8443 -p 2000:2000 -i -d nexenta/fusion"
-
+    echoBlue "Checking the Fusion container image..."
+    docker pull tintri-dockerv2-local.jfrog.io/fusion2_develop:latest
+    es01_ip=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' fusion-elasticsearch01)
+    es02_ip=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' fusion-elasticsearch02)
+    echoBlue "Running the Fusion container..."
+    dockerRunCommand="docker run --name $containerName -v $fusionVol:/var/lib/nef -e ELASTICSEARCH_SERVERS=https://admin:admin@$es01_ip:9200,https://admin:admin@$es02_ip:9200 -e TZ=$tz -e MANAGEMENT_ADDRESS=$managementIp --network fusion2_esnet --ulimit nofile=65536:65536 --ulimit memlock=-1:-1 -p 8457:8457 -p 8443:8443 -d -i --restart unless-stopped tintri-dockerv2-local.jfrog.io/fusion2_develop:latest"
     # hide docker run output in case of existing image (we don't want to display a created container id)
     $dockerRunCommand 1> /dev/null
 
@@ -242,7 +245,7 @@ runContainer() {
 
     echo -e "Container with name ${textLightGray}$containerName${textNc} was created" 
     
-    echoBlue "Waiting for NexentaFusion to start"
+    echoBlue "Waiting for Fusion to start"
     uiStatus="down"
     while [ $uiStatus = "down" ]; do
         echo -n .
@@ -250,7 +253,8 @@ runContainer() {
         sleep 1
     done
     echo
-    echoBlue "NexentaFusion is available at https://${managementIp}:8457"
+    docker exec -it fusion2 /bin/nefclient sysconfig setProperty "{id:'fusion.eulaAccepted', value: 1}" > /dev/null
+    echoBlue "Fusion is available at https://${managementIp}:8457"
 }
 
 ### WIZARD START
@@ -263,12 +267,13 @@ if (( $EUID != 0 )); then
 fi
 
 # welcome message
-echo "This utility will walk you through installing NexentaFusion to run as a Docker container."
-echo "Refer to the NexentaFusion Installation QuickStart guide for additional details."
+echo
+echo "${textBold}This utility will walk you through installing Fusion to run as a Docker container.${textNormal}"
+echo "Refer to the Fusion Installation QuickStart guide for additional details."
 echo
 echo "The required information will be requested and minimums confirmed."
 echo 
-echo "NexentaFusion uses ports 2000, 8443, 8457 and 9200"
+echo "Fusion uses ports 2000, 8443, 8457 and 9200"
 echo "Ensure that your firewall allows access to the above."
 
 if isCentOS; then
@@ -287,7 +292,7 @@ calculateRAM
 
 if $isLowMemory; then
     echoRed "The OS reports ${totalMemory}, which is less than the 1g minimum."
-    echoRed "NexentaFusion may not operate properly."
+    echoRed "Fusion may not operate properly."
     echo
     echoRed "Exiting..."
     
@@ -317,15 +322,15 @@ if ! $dockerDaemonStarted; then
     while ! docker info &> /devnull; do sleep 1; done
 fi
 
-# check if fusion container is already exists
+# check if fusion container already exists
 if [ -n "$(docker ps -a -f "name=${containerName}" | grep ${containerName})" ]; then
-    echo "You already have an existing NexentaFusion container"
+    echo "You already have an existing Fusion container"
     echo "Do you want to stop and remove the current container and run a new one?"
-    echo "This will not effect your NexentaFusion data"
+    echo "This will not effect your Fusion data"
     echo "[y/N]"
     read removeCurrentContainer
 
-    previouslyUsedManagementIp=$(docker inspect nexenta-fusion | grep MGMT | grep -Eo '([0-9]+\.){3}[0-9]+')
+    previouslyUsedManagementIp=$(docker inspect fusion2 | grep MANAGEMENT_ADDRESS | grep -Eo '([0-9]+\.){3}[0-9]+')
 
     if [ "$removeCurrentContainer" = "y" ]; then
         echoBlue "Removing current container..." 
@@ -401,25 +406,28 @@ if [ "$isDefaultsAccpeted" = "n" ]; then
     fi
 
     ### Question 4
-    ask "Type NexentaFusion path or press enter to retain the default ($defaultFusionPath)" "This directory is used to store NexentaFusion and ESDB data"
-    read typedFusionPath
+    ask "Type Fusion volume name or press enter to retain the default ($defaultFusionVol)"
+    read typedFusionVol
 fi
 
 prepareContainerParams
 
-# clean install means that data is not exported from other NexentaFusion container
+# clean install means that data is not exported from other Fusion container
 isCleanInstall=true
+fusVol=$(sudo docker volume ls | grep fusion2_fusdata)
+esVol=$(sudo docker volume ls | grep fusion2_esdata1)
 
-if [ -d "${path}/nef" ] && [ -d "${path}/elasticsearch" ]; then
+if [ ! -z "$fusVol" ] && [ ! -z "$esVol" ]; then
     echo 
-    echo "There is data from previous NexentaFusion container in specified path";
+    echo "There is data from previous Fusion container in specified volume";
     echo "Do you want to use it?"
     echo "[Y/n]"
     read useOldData
     if [ "$useOldData" = "n" ]; then
-        echoBlue "Removing previous NexentaFusion container data..."
-        rm -rf $path/nef
-        rm -rf $path/elasticsearch
+        echoBlue "Removing previous ElasticSearch container data..."
+        docker-compose -f $(dirname "$0")/docker-compose.yml down -v
+        echoBlue "Removing previous Fusion container data..."
+        docker volume prune -f
         else 
         isCleanInstall=false
     fi 
@@ -429,6 +437,6 @@ runContainer $isDefaultsAccpeted
 
 if "$isCleanInstall" = true; then
     echo
-    echo "Default login/password: admin/nexenta"
+    echo "Default login/password: admin/fusion"
     echo
 fi

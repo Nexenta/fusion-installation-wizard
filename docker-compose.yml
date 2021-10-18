@@ -1,0 +1,78 @@
+# Should not be used in production.
+# This is example of docker-compose file
+# which can be used to run NexentaFusion ecosystem.
+#
+# Please note, that following settings provide
+# password protected Elasticsearch (also with SSL enabled)
+
+# Usage:
+#   docker-compose up -d
+
+version: '3.4'
+
+# Database shared environment
+x-elasticsearch-env: &elasticsearch-env
+  # User credentials
+
+  # Heap size
+  ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+
+  cluster.name: "fusion-docker-cluster"
+  cluster.initial_master_nodes: "elasticsearch01,elasticsearch02"
+  bootstrap.memory_lock: "true"
+
+services:
+  elasticsearch01:
+    image: amazon/opendistro-for-elasticsearch:latest
+    container_name: fusion-elasticsearch01
+    environment:
+      << : *elasticsearch-env
+      HOSTNAME: "elasticsearch01"
+      discovery.seed_hosts: "elasticsearch02"
+      opendistro_security.ssl.transport.enabled_protocols: "TLSv1.3"
+      opendistro_security.ssl.http.enabled_protocols: "TLSv1.2, TLSv1.3"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata1:/usr/share/elasticsearch/data
+      # I hope they will implement this way of volume mapping.
+      # See: https://github.com/moby/moby/issues/32582
+      # For now, we don't have access to elasticsearch logs
+      # via /var/lib/nef/logs/elasticsearch
+      # - fusdata/logs/elasticsearch/2:/usr/share/elasticsearch/logs
+    ports:
+      - 9200:9200
+    networks:
+      - esnet
+
+  elasticsearch02:
+    image: amazon/opendistro-for-elasticsearch:latest
+    container_name: fusion-elasticsearch02
+    environment:
+      << : *elasticsearch-env
+      HOSTNAME: "elasticsearch02"
+      discovery.seed_hosts: "elasticsearch01"
+      opendistro_security.ssl.transport.enabled_protocols: "TLSv1.3"
+      opendistro_security.ssl.http.enabled_protocols: "TLSv1.2, TLSv1.3"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata2:/usr/share/elasticsearch/data
+      # See: https://github.com/moby/moby/issues/32582
+      # - fusdata/logs/elasticsearch/1:/usr/share/elasticsearch/logs
+    networks:
+      - esnet
+
+volumes:
+  esdata1:
+    driver: local
+  esdata2:
+    driver: local
+
+networks:
+  esnet:
+    driver: bridge
