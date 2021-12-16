@@ -50,7 +50,7 @@ services:
       - ${PORT:-8457}:8457
 
   es-master01:
-    image: amazon/opendistro-for-elasticsearch:latest
+    image: nexenta/fusion-elasticsearch:latest
     container_name: es-master01
     restart: always
     environment:
@@ -69,7 +69,7 @@ services:
       - esnet
 
   es-master02:
-    image: amazon/opendistro-for-elasticsearch:latest
+    image: nexenta/fusion-elasticsearch:latest
     container_name: es-master02
     restart: always
     environment:
@@ -88,7 +88,7 @@ services:
       - esnet
 
   es-master03:
-    image: amazon/opendistro-for-elasticsearch:latest
+    image: nexenta/fusion-elasticsearch:latest
     container_name: es-master03
     restart: always
     environment:

@@ -63,7 +63,7 @@ spec:
           mountPath: /usr/share/elasticsearch/data
       containers:
         - name: esdb
-          image: nexenta/fusion-elasticsearch:7.2.0.0
+          image: nexenta/fusion-elasticsearch:latest
           resources:
             # NOTE: 
             # We recommend change this settings based on your compute resources
