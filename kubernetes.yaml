@@ -140,7 +140,7 @@ spec:
     spec:
       containers:
         - name: fusion
-          image: nexenta/fusion-dev
+          image: nexenta/fusion:latest
           resources:
             # NOTE:
             # We recommend change this settings based on your compute resources
