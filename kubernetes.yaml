@@ -103,7 +103,7 @@ spec:
           # NOTE:
           # You should create secret with AUTH_USER and AUTH_PASSWORD for Elasticsearch
           # E.g.
-          # kubectl create secret generic esdb-secret --from-literal=AUTH_USERNAME='admin' --from-literal=AUTH_PASSWORD='elasticsearch'
+          # kubectl create secret generic esdb-secret --from-literal=AUTH_USERNAME='admin' --from-literal=AUTH_PASSWORD='admin'
           # Then you can use this credentials for NexentaFusion Analytics setup
           envFrom:
           - secretRef:
@@ -160,7 +160,7 @@ spec:
           # If you want to change any env vars for NexentaFusion container you can create secret and uncomment "envFrom" settings
           # You can change such environment parameters as: TZ, MANAGEMENT_ADDRESS, ELASTICSEARCH_SERVERS, WEB_PROXY, PORT
           # E.g.
-          # kubectl create secret generic fusion-secret --from-literal=ELASTICSEARCH_SERVERS='https://admin:elasticsearch@10.3.199.201:9200'
+          # kubectl create secret generic fusion-secret --from-literal=ELASTICSEARCH_SERVERS='https://admin:admin@10.3.199.201:9200'
           # 
 #          envFrom:
 #          - secretRef:

@@ -38,10 +38,7 @@ services:
     # they would be displayed as read-only in UI configuration screens.
     # environment:
     #   MANAGEMENT_ADDRESS: "192.168.10.62"
-    #   ELASTICSEARCH_SERVERS: 'https://admin:elasticsearch@192.168.10.62:9200'
-    #
-    # Timezone of container. Default: UTC+0
-    #   TZ: "America/New_York"
+    #   ELASTICSEARCH_SERVERS: 'https://admin:admin@192.168.10.62:9200'
     #
     # Proxy server address
     #   WEB_PROXY: "http://192.168.10.250:8080"
