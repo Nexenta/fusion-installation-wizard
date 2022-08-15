@@ -26,22 +26,21 @@ services:
     environment:
     # If you want NexentaFusion to listen on other port than 8457
     # change environment variable below and do a change in the ports section
-    # or just use PORT environment variable to specify port
-    #
+    # or just use PORT environment variable to specify port.
     # Example: PORT=443 docker-compose up -d
       PORT: ${PORT:-8457}
-    volumes:
-      - fusdata:/var/lib/nef
+    #
     # If you want to specify management address and Elasticsearch info,
     # then uncomment following lines.
     # Note: If settings are defined as environmental variables, then
     # they would be displayed as read-only in UI configuration screens.
-    # environment:
     #   MANAGEMENT_ADDRESS: "192.168.10.62"
     #   ELASTICSEARCH_SERVERS: 'https://admin:admin@192.168.10.62:9200'
     #
     # Proxy server address
     #   WEB_PROXY: "http://192.168.10.250:8080"
+    volumes:
+      - fusdata:/var/lib/nef
     ports:
       - ${PORT:-8457}:8457
 
