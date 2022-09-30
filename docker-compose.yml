@@ -4,23 +4,23 @@
 # Usage:
 #   docker-compose up
 
-version: '3.4'
+version: '3.5'
 
-# Database shared environment
-x-elasticsearch-env: &elasticsearch-env
+# Database shared environment for all cluster nodes
+x-opensearch-env: &opensearch-env
   # Heap size
-  ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+  OPENSEARCH_JAVA_OPTS: "-Xms1g -Xmx1g"
 
   # Cluster name
-  cluster.name: "fusion-docker-cluster"
+  cluster.name: "opensearch-docker-cluster"
 
-  # Default settings for all cluster nodes
-  bootstrap.memory_lock: "true"
-  cluster.initial_master_nodes: "es-master01,es-master02,es-master03"
+  bootstrap.memory_lock: "true" # along with the memlock settings, disables swapping
+  discovery.seed_hosts: "opensearch-node1,opensearch-node2,opensearch-node3"
+  cluster.initial_master_nodes: "opensearch-node1,opensearch-node2,opensearch-node3"
 
 services:
   fusion:
-    image: nexenta/fusion:${VERSION:-2.0.0}
+    image: nexenta/fusion:${VERSION:-2.0.3}
     container_name: fusion
     restart: always
     environment:
@@ -44,60 +44,69 @@ services:
     ports:
       - ${PORT:-8457}:8457
 
-  es-master01:
-    image: nexenta/fusion-elasticsearch:latest
-    container_name: es-master01
+  opensearch-node1:
+    image: nexenta/fusion-opensearch:1.3.5
+    container_name: opensearch-node1
     restart: always
     environment:
-      << : *elasticsearch-env
-      HOSTNAME: "es-master01"
-      discovery.seed_hosts: "es-master02,es-master03"
+      << : *opensearch-env
+      node.name: "opensearch-node1"
+      plugins.security.ssl.transport.enabled_protocols: "TLSv1.3"
+      plugins.security.ssl.http.enabled_protocols: "TLSv1.2, TLSv1.3"
     ulimits:
       memlock:
         soft: -1
         hard: -1
+      nofile:
+        soft: 65536 # maximum number of open files for the OpenSearch user, set to at least 65536 on modern systems
+        hard: 65536
     volumes:
-      - esdata1:/usr/share/elasticsearch/data
+      - esdata1:/usr/share/opensearch/data
     ports:
       - 9200:9200
+      - 9600:9600 # required for Performance Analyzer
     networks:
       - esnet
 
-  es-master02:
-    image: nexenta/fusion-elasticsearch:latest
-    container_name: es-master02
+  opensearch-node2:
+    image: nexenta/fusion-opensearch:1.3.5
+    container_name: opensearch-node2
     restart: always
     environment:
-      << : *elasticsearch-env
-      HOSTNAME: "es-master02"
-      discovery.seed_hosts: "es-master01,es-master03"
+      << : *opensearch-env
+      node.name: "opensearch-node2"
+      plugins.security.ssl.transport.enabled_protocols: "TLSv1.3"
+      plugins.security.ssl.http.enabled_protocols: "TLSv1.2, TLSv1.3"
     ulimits:
       memlock:
         soft: -1
         hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
-      - esdata2:/usr/share/elasticsearch/data
-    ports:
-      - 10200:9200
+      - esdata2:/usr/share/opensearch/data
     networks:
       - esnet
 
-  es-master03:
-    image: nexenta/fusion-elasticsearch:latest
-    container_name: es-master03
+  opensearch-node3:
+    image: nexenta/fusion-opensearch:1.3.5
+    container_name: opensearch-node3
     restart: always
     environment:
-      << : *elasticsearch-env
-      HOSTNAME: "es-master03"
-      discovery.seed_hosts: "es-master01,es-master02"
+      << : *opensearch-env
+      node.name: "opensearch-node3"
+      plugins.security.ssl.transport.enabled_protocols: "TLSv1.3"
+      plugins.security.ssl.http.enabled_protocols: "TLSv1.2, TLSv1.3"
     ulimits:
       memlock:
         soft: -1
         hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
-      - esdata3:/usr/share/elasticsearch/data
-    ports:
-      - 11200:9200
+      - esdata3:/usr/share/opensearch/data
     networks:
       - esnet
 
@@ -113,3 +122,4 @@ volumes:
 
 networks:
   esnet:
+    driver: bridge
