@@ -45,7 +45,7 @@ services:
       - ${PORT:-8457}:8457
 
   opensearch-node1:
-    image: nexenta/fusion-opensearch:1.3.7
+    image: nexenta/fusion-opensearch:1.3.9
     container_name: opensearch-node1
     restart: always
     environment:
@@ -69,7 +69,7 @@ services:
       - esnet
 
   opensearch-node2:
-    image: nexenta/fusion-opensearch:1.3.7
+    image: nexenta/fusion-opensearch:1.3.9
     container_name: opensearch-node2
     restart: always
     environment:
@@ -90,7 +90,7 @@ services:
       - esnet
 
   opensearch-node3:
-    image: nexenta/fusion-opensearch:1.3.7
+    image: nexenta/fusion-opensearch:1.3.9
     container_name: opensearch-node3
     restart: always
     environment:
