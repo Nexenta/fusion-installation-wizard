@@ -20,7 +20,7 @@ x-opensearch-env: &opensearch-env
 
 services:
   fusion:
-    image: nexenta/fusion:${VERSION:-2.0.5}
+    image: nexenta/fusion:${VERSION:-2.0.6}
     container_name: fusion
     restart: always
     environment:
@@ -45,7 +45,7 @@ services:
       - ${PORT:-8457}:8457
 
   opensearch-node1:
-    image: nexenta/fusion-opensearch:1.3.9
+    image: nexenta/fusion-opensearch:1.3.11
     container_name: opensearch-node1
     restart: always
     environment:
@@ -69,7 +69,7 @@ services:
       - esnet
 
   opensearch-node2:
-    image: nexenta/fusion-opensearch:1.3.9
+    image: nexenta/fusion-opensearch:1.3.11
     container_name: opensearch-node2
     restart: always
     environment:
@@ -90,7 +90,7 @@ services:
       - esnet
 
   opensearch-node3:
-    image: nexenta/fusion-opensearch:1.3.9
+    image: nexenta/fusion-opensearch:1.3.11
     container_name: opensearch-node3
     restart: always
     environment:
